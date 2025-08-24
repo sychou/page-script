@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, SuggestModal, TFile, TFolder } from 'obsidian';
 
 interface PageScriptSettings {
 	scriptsFolder: string;
@@ -18,7 +18,7 @@ export default class PageScriptPlugin extends Plugin {
 			id: 'execute-page-script',
 			name: 'Execute PageScript',
 			callback: () => {
-				new PageScriptModal(this.app, this.settings, this).open();
+				new PageScriptSuggestModal(this.app, this.settings, this).open();
 			}
 		});
 
@@ -38,7 +38,7 @@ export default class PageScriptPlugin extends Plugin {
 	}
 }
 
-class PageScriptModal extends Modal {
+class PageScriptSuggestModal extends SuggestModal<TFile> {
 	plugin: PageScriptPlugin;
 	settings: PageScriptSettings;
 	
@@ -46,50 +46,32 @@ class PageScriptModal extends Modal {
 		super(app);
 		this.settings = settings;
 		this.plugin = plugin;
+		this.setPlaceholder("Type to search for PageScripts...");
 	}
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.createEl("h1", {text: "Select PageScript to Execute"});
-		
-		this.displayScriptFiles();
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-
-	private async displayScriptFiles() {
-		const {contentEl} = this;
-		
+	getSuggestions(query: string): TFile[] {
 		const scriptsFolder = this.app.vault.getAbstractFileByPath(this.settings.scriptsFolder);
 		
 		if (!scriptsFolder || !(scriptsFolder instanceof TFolder)) {
-			contentEl.createEl("p", {text: `Scripts folder "${this.settings.scriptsFolder}" not found. Please check your settings.`});
-			return;
+			return [];
 		}
 
 		const markdownFiles = scriptsFolder.children.filter(file => 
-			file instanceof TFile && file.extension === 'md'
+			file instanceof TFile && 
+			file.extension === 'md' &&
+			file.basename.toLowerCase().includes(query.toLowerCase())
 		) as TFile[];
 
-		if (markdownFiles.length === 0) {
-			contentEl.createEl("p", {text: "No markdown files found in scripts folder."});
-			return;
-		}
+		return markdownFiles;
+	}
 
-		markdownFiles.forEach(file => {
-			const button = contentEl.createEl("button", {text: file.basename, cls: "mod-cta"});
-			button.style.display = "block";
-			button.style.width = "100%";
-			button.style.marginBottom = "8px";
-			
-			button.onclick = () => {
-				this.executeScript(file);
-				this.close();
-			};
-		});
+	renderSuggestion(file: TFile, el: HTMLElement) {
+		el.createEl("div", { text: file.basename });
+		el.createEl("small", { text: file.path });
+	}
+
+	onChooseSuggestion(file: TFile) {
+		this.executeScript(file);
 	}
 
 	private async executeScript(file: TFile) {
@@ -267,105 +249,13 @@ class PageScriptSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Scripts folder')
 			.setDesc('The folder containing your PageScript markdown files')
-			.addSearch(search => {
-				search
-					.setPlaceholder('PageScripts')
-					.setValue(this.plugin.settings.scriptsFolder)
-					.onChange(async (value) => {
-						this.plugin.settings.scriptsFolder = value || 'PageScripts';
-						await this.plugin.saveSettings();
-					});
-
-				// Get all folders for suggestions
-				const folders = this.getAllFolders();
-				search.onChanged = () => {
-					const query = search.getValue().toLowerCase();
-					const suggestions = folders.filter(folder => 
-						folder.toLowerCase().includes(query)
-					);
-					
-					// Clear existing suggestions
-					const suggestionContainer = search.containerEl.querySelector('.suggestion-container');
-					if (suggestionContainer) {
-						suggestionContainer.remove();
-					}
-
-					if (suggestions.length > 0 && query.length > 0) {
-						this.showFolderSuggestions(search, suggestions);
-					}
-				};
-			});
+			.addText(text => text
+				.setPlaceholder('PageScripts')
+				.setValue(this.plugin.settings.scriptsFolder)
+				.onChange(async (value) => {
+					this.plugin.settings.scriptsFolder = value || 'PageScripts';
+					await this.plugin.saveSettings();
+				}));
 	}
 
-	private getAllFolders(): string[] {
-		const folders: string[] = [];
-		
-		const addFoldersRecursively = (folder: TFolder, path = '') => {
-			const currentPath = path ? `${path}/${folder.name}` : folder.name;
-			folders.push(currentPath);
-			
-			folder.children.forEach(child => {
-				if (child instanceof TFolder) {
-					addFoldersRecursively(child, currentPath);
-				}
-			});
-		};
-
-		// Start from root
-		this.app.vault.getAllLoadedFiles().forEach(file => {
-			if (file instanceof TFolder && file.parent === this.app.vault.getRoot()) {
-				addFoldersRecursively(file);
-			}
-		});
-
-		return folders.sort();
-	}
-
-	private showFolderSuggestions(searchComponent: any, suggestions: string[]) {
-		const container = searchComponent.containerEl;
-		const suggestionContainer = container.createEl('div', { cls: 'suggestion-container' });
-		suggestionContainer.style.position = 'absolute';
-		suggestionContainer.style.top = '100%';
-		suggestionContainer.style.left = '0';
-		suggestionContainer.style.right = '0';
-		suggestionContainer.style.backgroundColor = 'var(--background-primary)';
-		suggestionContainer.style.border = '1px solid var(--background-modifier-border)';
-		suggestionContainer.style.borderRadius = '4px';
-		suggestionContainer.style.maxHeight = '200px';
-		suggestionContainer.style.overflowY = 'auto';
-		suggestionContainer.style.zIndex = '1000';
-
-		suggestions.slice(0, 10).forEach(folder => {
-			const suggestionEl = suggestionContainer.createEl('div', { text: folder });
-			suggestionEl.style.padding = '8px 12px';
-			suggestionEl.style.cursor = 'pointer';
-			suggestionEl.style.borderBottom = '1px solid var(--background-modifier-border)';
-
-			suggestionEl.addEventListener('mouseenter', () => {
-				suggestionEl.style.backgroundColor = 'var(--background-modifier-hover)';
-			});
-
-			suggestionEl.addEventListener('mouseleave', () => {
-				suggestionEl.style.backgroundColor = 'transparent';
-			});
-
-			suggestionEl.addEventListener('click', async () => {
-				searchComponent.setValue(folder);
-				this.plugin.settings.scriptsFolder = folder;
-				await this.plugin.saveSettings();
-				suggestionContainer.remove();
-			});
-		});
-
-		// Remove suggestions when clicking outside
-		setTimeout(() => {
-			const clickHandler = (e: MouseEvent) => {
-				if (!container.contains(e.target as Node)) {
-					suggestionContainer.remove();
-					document.removeEventListener('click', clickHandler);
-				}
-			};
-			document.addEventListener('click', clickHandler);
-		}, 100);
-	}
 }
