@@ -63,7 +63,7 @@ Let's create your first script step by step:
 
 In your scripts folder (e.g., `PageScripts/`), create a new file called `My First Script.md`:
 
-```markdown
+---
 # My First Script
 
 This is my first PageScript! This text is just documentation - it won't be executed.
@@ -76,7 +76,7 @@ const timestamp = new Date().toLocaleString();
 
 return `${greeting}\n\nCreated at: ${timestamp}`;
 ```
-```
+---
 
 ### Step 2: Run Your Script
 
