@@ -3,9 +3,9 @@
 	"name": "Page Script",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Execute JavaScript code blocks from selected markdown pages with configurable output modes",
-	"author": "Your Name",
-	"authorUrl": "",
+	"description": "Run JavaScript code blocks from Markdown pages",
+	"author": "Sean Chou",
+	"authorUrl": "https://x.com/sychou",
 	"fundingUrl": {
 		"Buy Me a Coffee": "https://www.buymeacoffee.com"
 	}

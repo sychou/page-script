@@ -39,92 +39,111 @@ An Obsidian plugin that executes JavaScript code blocks from markdown files with
 
 1. **Enable the plugin**: Settings → Community Plugins → Enable "Page Script"
 2. **Configure folder**: Settings → Page Script → Set your scripts folder
-3. **Try an example**: Ctrl/Cmd + P → "Execute PageScript" → Select "Insert text at cursor"
+3. **Try the starter example below**
 
-## 📖 Learning PageScripts
+## 🎯 Your First PageScript
 
-The following examples are included in the `PageScripts/` folder and demonstrate various concepts and techniques.
+Create a file called `Hello World.md` in your PageScripts folder with this content:
 
-### Basic Concepts
+```markdown
+# Hello World
 
-Start with these examples to learn the fundamentals:
+This is the simplest possible PageScript - it just returns text that gets inserted at your cursor.
 
-- **Insert text at cursor** - Most basic usage
-- **Insert current timestamp** - Working with dates
-- **Generate random UUID** - Custom functions
+```javascript
+return "Hello from PageScript!";
+```
+```
 
-### Output Control
+**To run it:**
+1. Place your cursor anywhere in a document
+2. Press Ctrl/Cmd + P → "Execute PageScript" 
+3. Select "Hello World"
+4. The text "Hello from PageScript!" appears at your cursor
 
-Learn how to control where your output goes:
+**That's it!** The most basic PageScript is just `return "some text";`
+
+## 📖 Learning More
+
+The following examples are included in the `PageScripts/` folder and demonstrate various concepts and techniques. Work through them in this suggested order:
+
+### Start Here (Basic Concepts)
+
+- **Insert text at cursor** - Most basic usage (just like above)
+- **Insert current timestamp** - Working with Date objects  
+- **Insert today's date** - String manipulation and formatting
+
+### Next Steps (Control Output Location)
 
 - **Control output mode - append** - Add to end of document
-- **Control output mode - new file** - Create separate documents
-- **Control output mode - replace page** - Generate templates
+- **Control output mode - new file** - Create separate files  
+- **Control output mode - replace page** - Generate complete templates
 
-### Working with Text
+### Working with Selected Text
 
-Transform and manipulate selected text:
+Transform and manipulate text that you've selected:
 
-- **Transform selected text** - Basic text manipulation
-- **Wrap selection in code block** - Markdown formatting
-- **Convert text to bullet list** - Array processing
+- **Transform selected text** - Convert selection to uppercase
+- **Wrap selection in code block** - Add markdown code formatting
+- **Convert text to bullet list** - Transform lines into markdown lists
 
-### Advanced Features
+### Advanced Features  
 
-- **Access current file info** - File metadata and properties
+- **Generate random UUID** - Custom functions and algorithms
 - **Show notifications** - User feedback with Notice API
+- **Access current file info** - File metadata and properties  
+- **Generate random quote** - Working with arrays and randomization
+- **Create task list template** - Complex data structures and formatting
 - **Process and format data** - Data analysis and reporting
 
-## 💻 JavaScript API
+## 💻 Writing PageScripts
+
+### The Basics
+
+Every PageScript is just JavaScript code that returns text:
+
+```javascript
+// Simple text
+return "Hello!";
+
+// Dynamic content  
+return "Today is " + new Date().toDateString();
+
+// Multiple lines
+return `Line 1
+Line 2
+Line 3`;
+```
+
+### Controlling Output Location
+
+By default, output goes to your cursor. Use `setOutputMode()` to change this:
+
+```javascript
+setOutputMode('append');  // Add to end of document
+return "This gets appended!";
+```
+
+Available modes:
+- `'cursor'` - Insert at cursor (default)
+- `'selection'` - Replace selected text (default if text is selected)  
+- `'append'` - Add to end of document
+- `'page'` - Replace entire page content
+- `'newfile'` - Create a new file
 
 ### Available Objects
 
 ```javascript
-// Obsidian App instance
-app.workspace.getActiveViewOfType(MarkdownView)
-
-// Show notifications
-new Notice("Hello!");
+// Show notifications to user
+new Notice("Script completed!");
 new Notice("Message with timeout", 5000);
 
-// Access to MarkdownView class
+// Access Obsidian API
 const activeView = app.workspace.getActiveViewOfType(MarkdownView);
-```
-
-### Output Control
-
-```javascript
-// Control where output goes
-setOutputMode('cursor');    // Insert at cursor (default)
-setOutputMode('selection'); // Replace selection (default if text selected)
-setOutputMode('append');    // Add to end of document
-setOutputMode('page');      // Replace entire page
-setOutputMode('newfile');   // Create new file
-
-// Or use return object
-return {
-    content: "Your output here",
-    mode: 'append'
-};
-```
-
-### Example Script Structure
-
-```markdown
-# My PageScript
-
-Description of what this script does.
-
-```javascript
-// Your JavaScript code here
-const result = "Hello, World!";
-
-// Optional: Control output location
-setOutputMode('cursor');
-
-// Return the output
-return result;
-```
+if (activeView) {
+    const fileName = activeView.file?.name;
+    return `Current file: ${fileName}`;
+}
 ```
 
 ## 🔧 Advanced Usage

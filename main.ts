@@ -17,7 +17,7 @@ export default class PageScriptPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'execute-page-script',
-			name: 'Execute PageScript',
+			name: 'Run Script',
 			callback: () => {
 				new PageScriptSuggestModal(this.app, this.settings, this, 'insert').open();
 			}
@@ -25,7 +25,7 @@ export default class PageScriptPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'execute-page-script-new-file',
-			name: 'Execute PageScript to New File',
+			name: 'Run Script to New File',
 			callback: () => {
 				new PageScriptSuggestModal(this.app, this.settings, this, 'newfile').open();
 			}
