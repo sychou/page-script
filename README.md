@@ -4,6 +4,22 @@ Over the years, I've found myself using [Templater](https://github.com/SilentVoi
 
 PageScript is an Obsidian plugin that runs JavaScript code from Markdown files located within an Obsidian folder. It's easy to write scripts by using JavaScript codeblocks and you have basically the full power of Obsidian's API at your disposal. Please be aware that this means you can seriously mess up your data and you should never run scripts unless you trust the source, or better yet, are able to read the script yourself to make sure it's safe.
 
+## 🧠 How It Works
+
+**The Simple Version**: Each `.md` file in your scripts folder becomes a runnable script. When you select a script, PageScript finds all JavaScript code blocks in that file, runs them in isolated sandboxes, collects their return values, and outputs the combined results where you want them.
+
+**The Details**:
+1. **Files = Scripts**: Every markdown file (`.md`) in your configured folder is a script
+2. **Markdown is Documentation**: Normal text, headers, lists, etc. are ignored - they're just documentation
+3. **Code Blocks = Executable**: Only JavaScript code blocks (`` ```javascript ``) are executed
+4. **Isolated Execution**: Each code block runs in its own sandbox to prevent variable conflicts
+5. **Results Combined**: Return values from all blocks are combined into the final output
+6. **Smart Output**: Results go to cursor, selection, end of page, new file, etc. based on your script's instructions
+
+**Example Flow**: 
+- You have `My Script.md` containing explanatory text and 3 JavaScript code blocks
+- You run the script → PageScript ignores the text, executes the 3 code blocks separately, combines their return values, and inserts the result at your cursor
+
 ## ✨ Features
 
 - **✨ JavaScript Pages**: Run JavaScript from a configurable folder in your Obsidian Vault. Because it only runs code blocks, you can provide documentation right in the file. See examples for the easiest explanation.
@@ -36,8 +52,49 @@ PageScript is an Obsidian plugin that runs JavaScript code from Markdown files l
 ### First Steps
 
 1. **Enable the plugin**: Settings → Community Plugins → Enable "Page Script"
-2. **Configure folder**: Settings → Page Script → Set your scripts folder
-3. **Try an example**: Ctrl/Cmd + P → "Run Script" → Select "Insert text at cursor"
+2. **Configure folder**: Settings → Page Script → Set your scripts folder (default: `PageScripts`)
+3. **Try an example**: Ctrl/Cmd + P → "Execute PageScript" → Select "Insert text at cursor"
+
+## 🎯 Your First Script
+
+Let's create your first script step by step:
+
+### Step 1: Create the Script File
+
+In your scripts folder (e.g., `PageScripts/`), create a new file called `My First Script.md`:
+
+```markdown
+# My First Script
+
+This is my first PageScript! This text is just documentation - it won't be executed.
+
+The JavaScript code below WILL be executed when I run this script:
+
+```javascript
+const greeting = "Hello from my first PageScript!";
+const timestamp = new Date().toLocaleString();
+
+return `${greeting}\n\nCreated at: ${timestamp}`;
+```
+```
+
+### Step 2: Run Your Script
+
+1. Place your cursor anywhere in a note
+2. Press `Ctrl+P` (or `Cmd+P` on Mac) to open the command palette
+3. Type "Execute PageScript" and select it
+4. Choose "My First Script" from the dropdown
+5. Your script output appears at your cursor!
+
+### Step 3: Understanding What Happened
+
+1. **PageScript found your file** - Any `.md` file in your scripts folder is a script
+2. **Ignored the markdown text** - Headers, paragraphs, etc. are just documentation
+3. **Executed the JavaScript** - Only the code between `` ```javascript `` and `` ``` `` ran
+4. **Collected the return value** - Whatever your script returned became the output
+5. **Inserted at cursor** - Default behavior is to insert where your cursor was
+
+**Key Point**: The `return` statement determines what gets inserted into your document. Everything else (like `const greeting = ...`) is just internal script logic.
 
 ## 📖 Learning PageScripts
 
