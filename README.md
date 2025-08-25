@@ -1,12 +1,12 @@
-# PageScript Executor Plugin for Obsidian
+# PageScript Plugin for Obsidian
 
-An Obsidian plugin that executes JavaScript code blocks from markdown files with intelligent output control. Create powerful automation scripts, text generators, and data processors directly within your Obsidian vault.
+Over the years, I've found myself using [Templater](https://github.com/SilentVoid13/Templater) primarily to run scripts and rarely for templating. I loved how easy it was to create scripts in Obsidian itself and be able to run them from my desktop and mobile devices. However, I realize that it was an unorthodox use of Templater and and realized that it was time for me to abusing Templater and create a plugin for my specific use case. So without further ado, I've (mostly vibe) coded PageScript.
+
+PageScript is an Obsidian plugin that runs JavaScript code from Markdown files located within an Obsidian folder. It's easy to write scripts by using JavaScript codeblocks and you have basically the full power of Obsidian's API at your disposal. Please be aware that this means you can seriously mess up your data and you should never run scripts unless you trust the source, or better yet, are able to read the script yourself to make sure it's safe.
 
 ## ✨ Features
 
-- **📁 Smart Script Management**: Configurable scripts folder with type-ahead folder selection
-- **🔍 Intuitive Script Selection**: Search and select scripts with native Obsidian UI
-- **⚡ JavaScript Execution**: Run JavaScript code blocks with full Obsidian API access
+- **✨ JavaScript Pages**: Run JavaScript from a configurable folder in your Obsidian Vault. Because it only runs code blocks, you can provide documentation right in the file. See examples for the easiest explanation.
 - **🎯 Intelligent Output Control**: Scripts can control where their output goes:
   - Insert at cursor position
   - Replace selected text  
@@ -14,7 +14,6 @@ An Obsidian plugin that executes JavaScript code blocks from markdown files with
   - Replace entire page content
   - Create new files
 - **🛡️ Safe Execution**: Each code block runs in isolation to prevent variable conflicts
-- **📚 Rich Examples**: 15+ educational examples covering everything from basics to advanced concepts
 
 ## 🚀 Quick Start
 
@@ -26,8 +25,7 @@ An Obsidian plugin that executes JavaScript code blocks from markdown files with
    git clone <repository-url>
    cd page-script
    npm install
-   ./install.sh  # Will prompt for vault path (default: ~/Vaults/Main)
-   # Or specify path directly: ./install.sh /path/to/your/vault
+   ./install.sh  # Installs to ~/Vaults/Main by default
    ```
 
 2. **Manual installation**:
@@ -39,111 +37,90 @@ An Obsidian plugin that executes JavaScript code blocks from markdown files with
 
 1. **Enable the plugin**: Settings → Community Plugins → Enable "Page Script"
 2. **Configure folder**: Settings → Page Script → Set your scripts folder
-3. **Try the starter example below**
+3. **Try an example**: Ctrl/Cmd + P → "Run Script" → Select "Insert text at cursor"
 
-## 🎯 Your First PageScript
+## 📖 Learning PageScripts
 
-Create a file called `Hello World.md` in your PageScripts folder with this content:
+### Basic Concepts
 
-```markdown
-# Hello World
+Start with these examples to learn the fundamentals:
 
-This is the simplest possible PageScript - it just returns text that gets inserted at your cursor.
+- **Insert text at cursor** - Most basic usage
+- **Insert current timestamp** - Working with dates
+- **Generate random UUID** - Custom functions
 
-```javascript
-return "Hello from PageScript!";
-```
-```
+### Output Control
 
-**To run it:**
-1. Place your cursor anywhere in a document
-2. Press Ctrl/Cmd + P → "Execute PageScript" 
-3. Select "Hello World"
-4. The text "Hello from PageScript!" appears at your cursor
-
-**That's it!** The most basic PageScript is just `return "some text";`
-
-## 📖 Learning More
-
-The following examples are included in the `PageScripts/` folder and demonstrate various concepts and techniques. Work through them in this suggested order:
-
-### Start Here (Basic Concepts)
-
-- **Insert text at cursor** - Most basic usage (just like above)
-- **Insert current timestamp** - Working with Date objects  
-- **Insert today's date** - String manipulation and formatting
-
-### Next Steps (Control Output Location)
+Learn how to control where your output goes:
 
 - **Control output mode - append** - Add to end of document
-- **Control output mode - new file** - Create separate files  
-- **Control output mode - replace page** - Generate complete templates
+- **Control output mode - new file** - Create separate documents
+- **Control output mode - replace page** - Generate templates
 
-### Working with Selected Text
+### Working with Text
 
-Transform and manipulate text that you've selected:
+Transform and manipulate selected text:
 
-- **Transform selected text** - Convert selection to uppercase
-- **Wrap selection in code block** - Add markdown code formatting
-- **Convert text to bullet list** - Transform lines into markdown lists
+- **Transform selected text** - Basic text manipulation
+- **Wrap selection in code block** - Markdown formatting
+- **Convert text to bullet list** - Array processing
 
-### Advanced Features  
+### Advanced Features
 
-- **Generate random UUID** - Custom functions and algorithms
+- **Access current file info** - File metadata and properties
 - **Show notifications** - User feedback with Notice API
-- **Access current file info** - File metadata and properties  
-- **Generate random quote** - Working with arrays and randomization
-- **Create task list template** - Complex data structures and formatting
 - **Process and format data** - Data analysis and reporting
 
-## 💻 Writing PageScripts
-
-### The Basics
-
-Every PageScript is just JavaScript code that returns text:
-
-```javascript
-// Simple text
-return "Hello!";
-
-// Dynamic content  
-return "Today is " + new Date().toDateString();
-
-// Multiple lines
-return `Line 1
-Line 2
-Line 3`;
-```
-
-### Controlling Output Location
-
-By default, output goes to your cursor. Use `setOutputMode()` to change this:
-
-```javascript
-setOutputMode('append');  // Add to end of document
-return "This gets appended!";
-```
-
-Available modes:
-- `'cursor'` - Insert at cursor (default)
-- `'selection'` - Replace selected text (default if text is selected)  
-- `'append'` - Add to end of document
-- `'page'` - Replace entire page content
-- `'newfile'` - Create a new file
+## 💻 JavaScript API
 
 ### Available Objects
 
 ```javascript
-// Show notifications to user
-new Notice("Script completed!");
+// Obsidian App instance
+app.workspace.getActiveViewOfType(MarkdownView)
+
+// Show notifications
+new Notice("Hello!");
 new Notice("Message with timeout", 5000);
 
-// Access Obsidian API
+// Access to MarkdownView class
 const activeView = app.workspace.getActiveViewOfType(MarkdownView);
-if (activeView) {
-    const fileName = activeView.file?.name;
-    return `Current file: ${fileName}`;
-}
+```
+
+### Output Control
+
+```javascript
+// Control where output goes
+setOutputMode('cursor');    // Insert at cursor (default)
+setOutputMode('selection'); // Replace selection (default if text selected)
+setOutputMode('append');    // Add to end of document
+setOutputMode('page');      // Replace entire page
+setOutputMode('newfile');   // Create new file
+
+// Or use return object
+return {
+    content: "Your output here",
+    mode: 'append'
+};
+```
+
+### Example Script Structure
+
+```markdown
+# My PageScript
+
+Description of what this script does.
+
+```javascript
+// Your JavaScript code here
+const result = "Hello, World!";
+
+// Optional: Control output location
+setOutputMode('cursor');
+
+// Return the output
+return result;
+```
 ```
 
 ## 🔧 Advanced Usage
