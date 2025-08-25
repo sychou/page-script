@@ -34,5 +34,7 @@ const quotes = [
 ];
 
 const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+console.log("Selected quote:", randomQuote); // Debug info stays in console
+
 return `> ${randomQuote}`;
 ```

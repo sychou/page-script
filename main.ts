@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, SuggestModal, TFile, TFolder } from 'obsidian';
+import { App, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, SuggestModal, TFile, TFolder } from 'obsidian';
 
 interface PageScriptSettings {
 	scriptsFolder: string;
@@ -18,7 +18,15 @@ export default class PageScriptPlugin extends Plugin {
 			id: 'execute-page-script',
 			name: 'Execute PageScript',
 			callback: () => {
-				new PageScriptSuggestModal(this.app, this.settings, this).open();
+				new PageScriptSuggestModal(this.app, this.settings, this, 'insert').open();
+			}
+		});
+
+		this.addCommand({
+			id: 'execute-page-script-new-file',
+			name: 'Execute PageScript to New File',
+			callback: () => {
+				new PageScriptSuggestModal(this.app, this.settings, this, 'newfile').open();
 			}
 		});
 
@@ -41,11 +49,13 @@ export default class PageScriptPlugin extends Plugin {
 class PageScriptSuggestModal extends SuggestModal<TFile> {
 	plugin: PageScriptPlugin;
 	settings: PageScriptSettings;
+	mode: 'insert' | 'newfile';
 	
-	constructor(app: App, settings: PageScriptSettings, plugin: PageScriptPlugin) {
+	constructor(app: App, settings: PageScriptSettings, plugin: PageScriptPlugin, mode: 'insert' | 'newfile') {
 		super(app);
 		this.settings = settings;
 		this.plugin = plugin;
+		this.mode = mode;
 		this.setPlaceholder("Type to search for PageScripts...");
 	}
 
@@ -84,8 +94,8 @@ class PageScriptSuggestModal extends SuggestModal<TFile> {
 				return;
 			}
 
-			const executionResult = await this.executeJavaScript(jsBlocks.join('\n\n'));
-			await this.handleOutput(executionResult);
+			const executionResult = await this.executeJavaScript(jsBlocks);
+			await this.handleOutput(executionResult.content, executionResult.mode);
 			
 		} catch (error) {
 			new Notice(`Error executing script: ${error.message}`);
@@ -105,131 +115,172 @@ class PageScriptSuggestModal extends SuggestModal<TFile> {
 		return blocks;
 	}
 
-	private async executeJavaScript(code: string): Promise<string> {
+	private async executeJavaScript(jsBlocks: string[]): Promise<{content: string, mode?: string}> {
 		return new Promise((resolve, reject) => {
 			try {
-				const originalConsoleLog = console.log;
-				let output = '';
+				let outputMode: string | undefined;
+				let combinedResults: string[] = [];
 				
-				console.log = (...args: any[]) => {
-					output += args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ') + '\n';
+				// Provide global output function for scripts to control behavior
+				const setOutputMode = (mode: string) => {
+					outputMode = mode;
 				};
 
-				const func = new Function('app', 'Notice', 'MarkdownView', code);
-				const result = func(this.app, Notice, MarkdownView);
-				
-				console.log = originalConsoleLog;
-				
-				if (result !== undefined) {
-					output += String(result);
+				// Execute each block separately to avoid variable conflicts
+				for (let i = 0; i < jsBlocks.length; i++) {
+					const block = jsBlocks[i];
+					try {
+						const func = new Function('app', 'Notice', 'MarkdownView', 'setOutputMode', block);
+						const result = func(this.app, Notice, MarkdownView, setOutputMode);
+						
+						if (result !== undefined) {
+							// Check if result is an object with mode control
+							if (typeof result === 'object' && result !== null && 'content' in result) {
+								combinedResults.push(String(result.content));
+								outputMode = result.mode || outputMode;
+							} else {
+								combinedResults.push(String(result));
+							}
+						}
+					} catch (blockError) {
+						// If a block fails, include the error in results but continue
+						combinedResults.push(`Error in block ${i + 1}: ${blockError.message}`);
+					}
 				}
 				
-				resolve(output || 'Script executed successfully (no output)');
+				resolve({
+					content: combinedResults.join('\n\n'),
+					mode: outputMode
+				});
 			} catch (error) {
 				reject(error);
 			}
 		});
 	}
 
-	private async handleOutput(output: string) {
+	private async handleOutput(output: string, scriptMode?: string) {
+		if (output === '') {
+			new Notice("Script executed successfully (no return value)");
+			return;
+		}
+
+		// Handle newfile mode from command or script control
+		if (this.mode === 'newfile' || scriptMode === 'newfile') {
+			const fileName = `Script Output ${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.md`;
+			await this.app.vault.create(fileName, output);
+			new Notice(`Created new file: ${fileName}`);
+			return;
+		}
+
 		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 		
 		if (!activeView) {
-			const outputModal = new OutputModal(this.app, output);
-			outputModal.open();
+			new Notice("No active markdown view. Use 'Execute PageScript to New File' instead.");
 			return;
 		}
 
 		const editor = activeView.editor;
 		const selection = editor.getSelection();
 
-		if (selection) {
-			editor.replaceSelection(output);
-			new Notice("Selection replaced with script output");
-		} else {
-			const outputModal = new ExecutionModeModal(this.app, output, editor, activeView);
-			outputModal.open();
+		// Determine the actual mode to use
+		let effectiveMode = scriptMode;
+		
+		// If script didn't specify mode, use default logic
+		if (!effectiveMode) {
+			if (selection) {
+				effectiveMode = 'selection';
+			} else {
+				effectiveMode = 'cursor';
+			}
+		}
+
+		// Execute based on determined mode
+		switch (effectiveMode) {
+			case 'page':
+				editor.setValue(output);
+				new Notice("Page content replaced with script output");
+				break;
+				
+			case 'selection':
+				if (selection) {
+					const selectionStart = editor.getCursor('from');
+					editor.replaceSelection(output);
+					// Position cursor at end of replaced text
+					const outputLines = output.split('\n');
+					const newSelectionPos = {
+						line: selectionStart.line + outputLines.length - 1,
+						ch: outputLines.length === 1 ? selectionStart.ch + output.length : outputLines[outputLines.length - 1].length
+					};
+					editor.setCursor(newSelectionPos);
+					new Notice("Selection replaced with script output");
+				} else {
+					const cursorPos = editor.getCursor();
+					editor.replaceRange(output, cursorPos);
+					const outputLines = output.split('\n');
+					const newCursorPos = {
+						line: cursorPos.line + outputLines.length - 1,
+						ch: outputLines.length === 1 ? cursorPos.ch + output.length : outputLines[outputLines.length - 1].length
+					};
+					editor.setCursor(newCursorPos);
+					new Notice("Script output inserted at cursor (no selection found)");
+				}
+				break;
+				
+			case 'cursor':
+				const cursorPos = editor.getCursor();
+				editor.replaceRange(output, cursorPos);
+				// Position cursor at end of inserted text
+				const lines = output.split('\n');
+				const newCursorPos = {
+					line: cursorPos.line + lines.length - 1,
+					ch: lines.length === 1 ? cursorPos.ch + output.length : lines[lines.length - 1].length
+				};
+				editor.setCursor(newCursorPos);
+				new Notice("Script output inserted at cursor");
+				break;
+				
+			case 'append':
+				const lastLine = editor.lastLine();
+				const lastLineLength = editor.getLine(lastLine).length;
+				const appendPos = {line: lastLine, ch: lastLineLength};
+				editor.replaceRange('\n' + output, appendPos);
+				// Position cursor at end of appended text
+				const appendedLines = ('\n' + output).split('\n');
+				const newAppendPos = {
+					line: lastLine + appendedLines.length - 1,
+					ch: appendedLines[appendedLines.length - 1].length
+				};
+				editor.setCursor(newAppendPos);
+				new Notice("Script output appended to end of document");
+				break;
+				
+			default:
+				// Fallback to default behavior
+				if (selection) {
+					const selectionStart = editor.getCursor('from');
+					editor.replaceSelection(output);
+					const outputLines = output.split('\n');
+					const newSelectionPos = {
+						line: selectionStart.line + outputLines.length - 1,
+						ch: outputLines.length === 1 ? selectionStart.ch + output.length : outputLines[outputLines.length - 1].length
+					};
+					editor.setCursor(newSelectionPos);
+					new Notice("Selection replaced with script output");
+				} else {
+					const cursorPos = editor.getCursor();
+					editor.replaceRange(output, cursorPos);
+					const outputLines = output.split('\n');
+					const newCursorPos = {
+						line: cursorPos.line + outputLines.length - 1,
+						ch: outputLines.length === 1 ? cursorPos.ch + output.length : outputLines[outputLines.length - 1].length
+					};
+					editor.setCursor(newCursorPos);
+					new Notice("Script output inserted at cursor");
+				}
 		}
 	}
 }
 
-class ExecutionModeModal extends Modal {
-	output: string;
-	editor: Editor;
-	view: MarkdownView;
-
-	constructor(app: App, output: string, editor: Editor, view: MarkdownView) {
-		super(app);
-		this.output = output;
-		this.editor = editor;
-		this.view = view;
-	}
-
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.createEl("h2", {text: "Choose Output Mode"});
-		
-		const buttonContainer = contentEl.createEl("div");
-		buttonContainer.style.display = "flex";
-		buttonContainer.style.flexDirection = "column";
-		buttonContainer.style.gap = "8px";
-
-		const doNothingBtn = buttonContainer.createEl("button", {text: "Do Nothing (View Output)", cls: "mod-cta"});
-		doNothingBtn.onclick = () => {
-			const outputModal = new OutputModal(this.app, this.output);
-			outputModal.open();
-			this.close();
-		};
-
-		const replacePageBtn = buttonContainer.createEl("button", {text: "Replace Current Page", cls: "mod-cta"});
-		replacePageBtn.onclick = () => {
-			this.editor.setValue(this.output);
-			new Notice("Page content replaced with script output");
-			this.close();
-		};
-
-		const createNewPageBtn = buttonContainer.createEl("button", {text: "Create New Page", cls: "mod-cta"});
-		createNewPageBtn.onclick = async () => {
-			const fileName = `Script Output ${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.md`;
-			await this.app.vault.create(fileName, this.output);
-			new Notice(`New page created: ${fileName}`);
-			this.close();
-		};
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class OutputModal extends Modal {
-	output: string;
-
-	constructor(app: App, output: string) {
-		super(app);
-		this.output = output;
-	}
-
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.createEl("h2", {text: "Script Output"});
-		
-		const pre = contentEl.createEl("pre");
-		pre.style.whiteSpace = "pre-wrap";
-		pre.style.maxHeight = "400px";
-		pre.style.overflow = "auto";
-		pre.style.border = "1px solid var(--background-modifier-border)";
-		pre.style.padding = "16px";
-		pre.style.borderRadius = "4px";
-		pre.textContent = this.output;
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
 
 class PageScriptSettingTab extends PluginSettingTab {
 	plugin: PageScriptPlugin;
