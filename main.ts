@@ -1,4 +1,4 @@
-import { App, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, SuggestModal, TFile, TFolder } from 'obsidian';
+import { App, ButtonComponent, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, SuggestModal, TextAreaComponent, TextComponent, TFile, TFolder } from 'obsidian';
 import { FolderSuggest } from './folder-suggest';
 
 interface PageScriptSettings {
@@ -117,46 +117,66 @@ class PageScriptSuggestModal extends SuggestModal<TFile> {
 	}
 
 	private async executeJavaScript(jsBlocks: string[]): Promise<{content: string, mode?: string}> {
-		return new Promise((resolve, reject) => {
-			try {
-				let outputMode: string | undefined;
-				let combinedResults: string[] = [];
-				
-				// Provide global output function for scripts to control behavior
-				const setOutputMode = (mode: string) => {
-					outputMode = mode;
-				};
+		try {
+			let outputMode: string | undefined;
+			let combinedResults: string[] = [];
+			
+			// Create PageScript helper object
+			const ps = new PageScriptHelper(this.app);
+			
+			// Provide global output function for scripts to control behavior
+			const setOutputMode = (mode: string) => {
+				outputMode = mode;
+			};
 
-				// Execute each block separately to avoid variable conflicts
-				for (let i = 0; i < jsBlocks.length; i++) {
+			// Execute each block separately to avoid variable conflicts
+			for (let i = 0; i < jsBlocks.length; i++) {
 					const block = jsBlocks[i];
 					try {
-						const func = new Function('app', 'Notice', 'MarkdownView', 'setOutputMode', block);
-						const result = func(this.app, Notice, MarkdownView, setOutputMode);
+						const func = new Function('app', 'Notice', 'MarkdownView', 'setOutputMode', 'ps', block);
+						const result = func(this.app, Notice, MarkdownView, setOutputMode, ps);
 						
 						if (result !== undefined) {
-							// Check if result is an object with mode control
-							if (typeof result === 'object' && result !== null && 'content' in result) {
-								combinedResults.push(String(result.content));
-								outputMode = result.mode || outputMode;
+							// Check if result is a Promise
+							if (result instanceof Promise) {
+								// Handle Promise - wait for it to resolve
+								try {
+									const resolvedResult = await result;
+									if (resolvedResult !== undefined) {
+										// Check if resolved result is an object with mode control
+										if (typeof resolvedResult === 'object' && resolvedResult !== null && 'content' in resolvedResult) {
+											combinedResults.push(String(resolvedResult.content));
+											outputMode = resolvedResult.mode || outputMode;
+										} else {
+											combinedResults.push(String(resolvedResult));
+										}
+									}
+								} catch (promiseError) {
+									combinedResults.push(`Error in async block ${i + 1}: ${promiseError.message}`);
+								}
 							} else {
-								combinedResults.push(String(result));
+								// Handle non-Promise result (existing behavior)
+								if (typeof result === 'object' && result !== null && 'content' in result) {
+									combinedResults.push(String(result.content));
+									outputMode = result.mode || outputMode;
+								} else {
+									combinedResults.push(String(result));
+								}
 							}
 						}
 					} catch (blockError) {
 						// If a block fails, include the error in results but continue
 						combinedResults.push(`Error in block ${i + 1}: ${blockError.message}`);
 					}
-				}
-				
-				resolve({
-					content: combinedResults.join('\n\n'),
-					mode: outputMode
-				});
-			} catch (error) {
-				reject(error);
 			}
-		});
+			
+			return {
+				content: combinedResults.join('\n\n'),
+				mode: outputMode
+			};
+		} catch (error) {
+			throw error;
+		}
 	}
 
 	private async handleOutput(output: string, scriptMode?: string) {
@@ -282,7 +302,114 @@ class PageScriptSuggestModal extends SuggestModal<TFile> {
 	}
 }
 
+// PromptModal class for user input dialogs
+class PromptModal extends Modal {
+	private resolve: (value: string | null) => void;
+	private submitted = false;
+	private value: string;
 
+	constructor(
+		app: App,
+		private prompt_text: string,
+		private default_value: string = "",
+		private multi_line: boolean = false
+	) {
+		super(app);
+	}
+
+	onOpen(): void {
+		this.titleEl.setText(this.prompt_text);
+		this.createForm();
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+		if (!this.submitted) {
+			this.resolve(null); // Return null if cancelled
+		}
+	}
+
+	createForm(): void {
+		const div = this.contentEl.createDiv();
+		div.addClass("templater-prompt-div");
+		let textInput: TextComponent | TextAreaComponent;
+
+		if (this.multi_line) {
+			textInput = new TextAreaComponent(div);
+			const buttonDiv = this.contentEl.createDiv();
+			buttonDiv.addClass("templater-button-div");
+			const submitButton = new ButtonComponent(buttonDiv);
+			submitButton.buttonEl.addClass("mod-cta");
+			submitButton.setButtonText("Submit").onClick(() => {
+				this.resolveAndClose();
+			});
+		} else {
+			textInput = new TextComponent(div);
+		}
+
+		this.value = this.default_value;
+		textInput.inputEl.addClass("templater-prompt-input");
+		textInput.setPlaceholder("Type text here");
+		textInput.setValue(this.value);
+		textInput.onChange((value) => (this.value = value));
+		textInput.inputEl.focus();
+		textInput.inputEl.select();
+		
+		// Handle Enter key for single-line inputs
+		if (!this.multi_line) {
+			textInput.inputEl.addEventListener("keydown", (evt: KeyboardEvent) => {
+				if (evt.key === "Enter") {
+					evt.preventDefault();
+					this.resolveAndClose();
+				}
+			});
+		}
+	}
+
+	private resolveAndClose(): void {
+		this.submitted = true;
+		this.close();
+		this.resolve(this.value);
+	}
+
+	async openAndGetValue(): Promise<string | null> {
+		return new Promise((resolve) => {
+			this.resolve = resolve;
+			this.open();
+		});
+	}
+}
+
+// PageScript helper object
+class PageScriptHelper {
+	constructor(private app: App) {}
+
+	prompt(prompt_text: string, default_value: string = "", multi_line: boolean = false): Promise<string | null> {
+		const modal = new PromptModal(this.app, prompt_text, default_value, multi_line);
+		return modal.openAndGetValue();
+	}
+
+	notice(message: string, timeout?: number): void {
+		new Notice(message, timeout);
+	}
+
+	get currentFile() {
+		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		return activeView?.file || null;
+	}
+
+	readFile(file: TFile): Promise<string> {
+		return this.app.vault.read(file);
+	}
+
+	writeFile(file: TFile, content: string): Promise<void> {
+		return this.app.vault.modify(file, content);
+	}
+
+	renameFile(file: TFile, newPath: string): Promise<void> {
+		return this.app.vault.rename(file, newPath);
+	}
+}
 
 class PageScriptSettingTab extends PluginSettingTab {
 	plugin: PageScriptPlugin;

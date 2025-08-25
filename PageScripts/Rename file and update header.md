@@ -12,47 +12,62 @@ This script renames the current file and updates its H1 header to match. It's us
 **Note:** This script doesn't return output text - it performs file operations instead.
 
 ```javascript
-// Get the current file and its content
-const activeView = app.workspace.getActiveViewOfType(MarkdownView);
-if (!activeView || !activeView.file) {
-    new Notice("No active file found");
-    return; // Exit without inserting anything
+// Get the current file
+const currentFile = ps.currentFile;
+if (!currentFile) {
+    ps.notice("No active file found");
+    return;
 }
 
-const currentFile = activeView.file;
-const content = await app.vault.read(currentFile);
+// Read file content using ps helper
+// IMPORTANT: Return the Promise chain so the script waits for completion
+return ps.readFile(currentFile).then(content => {
+    // Look for the first h1 header (# Title)
+    const h1Match = content.match(/^# (.+)$/m);
+    let defaultName = currentFile.basename; // fallback to current file name
 
-// Look for the first h1 header (# Title)
-const h1Match = content.match(/^# (.+)$/m);
-let defaultName = currentFile.basename; // fallback to current file name
-
-// If h1 header found, use it as default
-if (h1Match) {
-    defaultName = h1Match[1].trim();
-}
-
-// Prompt user for new name, with h1 header or current name as default
-const newName = prompt("Enter new file name:", defaultName);
-
-// Only proceed if user provided a name and it's different from current file name
-if (newName && newName !== currentFile.basename) {
-    try {
-        // Update the h1 header if it exists
-        if (h1Match) {
-            const updatedContent = content.replace(/^# .+$/m, `# ${newName}`);
-            await app.vault.modify(currentFile, updatedContent);
-        }
-        
-        // Rename the file (do this after content update)
-        const newPath = currentFile.path.replace(currentFile.name, `${newName}.md`);
-        await app.vault.rename(currentFile, newPath);
-        
-        new Notice(`File renamed to: ${newName}`);
-        
-    } catch (error) {
-        new Notice(`Error renaming file: ${error.message}`);
+    // If h1 header found, use it as default
+    if (h1Match) {
+        defaultName = h1Match[1].trim();
     }
-} else {
-    new Notice("Rename cancelled or no change needed");
-}
+
+    // Prompt user for new name using ps.prompt()
+    ps.prompt("Enter new file name:", defaultName).then(newName => {
+        // Only proceed if user provided a name and it's different
+        if (newName && newName !== currentFile.basename) {
+            
+            // Function to handle the actual renaming
+            function renameFile() {
+                // Create a promise chain for the operations
+                let updatePromise = Promise.resolve();
+                
+                // Update the h1 header if it exists
+                if (h1Match) {
+                    const updatedContent = content.replace(/^# .+$/m, `# ${newName}`);
+                    updatePromise = ps.writeFile(currentFile, updatedContent);
+                }
+                
+                // Chain the rename operation after content update
+                updatePromise.then(() => {
+                    const newPath = currentFile.path.replace(currentFile.name, `${newName}.md`);
+                    return ps.renameFile(currentFile, newPath);
+                }).then(() => {
+                    ps.notice(`File renamed to: ${newName}`);
+                }).catch(error => {
+                    ps.notice(`Error renaming file: ${error.message}`);
+                });
+            }
+            
+            renameFile();
+            
+        } else {
+            ps.notice("Rename cancelled or no change needed");
+        }
+    }).catch(error => {
+        ps.notice(`Error: ${error.message}`);
+    });
+    
+}).catch(error => {
+    ps.notice(`Error reading file: ${error.message}`);
+});
 ```

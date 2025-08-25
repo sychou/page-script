@@ -94,7 +94,10 @@ return `${greeting}\n\nCreated at: ${timestamp}`;
 4. **Collected the return value** - Whatever your script returned became the output
 5. **Inserted at cursor** - Default behavior is to insert where your cursor was
 
-**Key Point**: The `return` statement determines what gets inserted into your document. Everything else (like `const greeting = ...`) is just internal script logic.
+**Key Points**: 
+- The `return` statement determines what gets inserted into your document
+- Everything else (like `const greeting = ...`) is just internal script logic  
+- You have access to the `ps` helper object for user input, notifications, and file operations
 
 ## 📖 Learning PageScripts
 
@@ -142,6 +145,49 @@ new Notice("Message with timeout", 5000);
 
 // Access to MarkdownView class
 const activeView = app.workspace.getActiveViewOfType(MarkdownView);
+
+// PageScript helper object (ps) - recommended for most tasks
+ps.prompt("Enter your name:", "Default Name");  // User input dialog
+ps.notice("Hello world!");                      // Show notification  
+ps.currentFile;                                 // Get current file
+ps.readFile(file);                             // Read file content
+ps.writeFile(file, content);                   // Write to file
+ps.renameFile(file, newPath);                  // Rename file
+```
+
+### PageScript Helper (ps)
+
+The `ps` object provides convenient helper functions for common tasks. All async operations return Promises that you handle with `.then()`:
+
+**⚠️ Important**: When using Promise-based operations, you must **return** the Promise chain for the script to wait for completion and capture the result.
+
+```javascript
+// 🔹 User Input - MUST return the Promise chain!
+return ps.prompt("Question?", "default").then(answer => {
+    if (answer) {
+        return `You entered: ${answer}`;
+    } else {
+        return "Cancelled";
+    }
+});
+
+// 🔹 Multi-line Input
+return ps.prompt("Enter text:", "", true).then(text => {
+    return `Multi-line input:\n${text}`;
+});
+
+// 🔹 File Operations
+const file = ps.currentFile;                    // Get current file
+return ps.readFile(file).then(content => {      // Read file - MUST return!
+    return `File has ${content.length} characters`;
+});
+
+ps.writeFile(file, "new content");              // Write to file
+ps.renameFile(file, "new-name.md");            // Rename file
+
+// 🔹 Notifications
+ps.notice("Hello!");                            // Show notification
+ps.notice("Timed message", 5000);              // Show for 5 seconds
 ```
 
 ### Output Control
