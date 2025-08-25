@@ -163,7 +163,7 @@ return {
 
 ### Example Script Structure
 
-```markdown
+---
 # My PageScript
 
 Description of what this script does.
@@ -178,7 +178,7 @@ setOutputMode('cursor');
 // Return the output
 return result;
 ```
-```
+---
 
 ## 🔧 Advanced Usage
 
@@ -186,7 +186,7 @@ return result;
 
 All JavaScript code blocks in a file are executed in order:
 
-```markdown
+---
 # Multi-Block Script
 
 ```javascript
@@ -201,7 +201,7 @@ const processed = data.map(x => x * 2);
 setOutputMode('append');
 return `Results: ${processed.join(', ')}`;
 ```
-```
+---
 
 ### Error Handling
 
