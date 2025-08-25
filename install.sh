@@ -1,18 +1,32 @@
 #!/bin/bash
 
 # PageScript Plugin Installer
-# Installs the plugin to ~/Vaults/Main/.obsidian/plugins/page-script
-# and copies examples to ~/Vaults/Main/90 Sys/PageScripts
+# Installs the plugin to specified vault and copies examples
 
 set -e  # Exit on any error
 
+# Get vault path from user
+if [ "$#" -eq 0 ]; then
+    echo "🚀 PageScript Plugin Installer"
+    echo ""
+    read -p "Enter the path to your Obsidian vault (default: ~/Vaults/Main): " VAULT_INPUT
+    if [ -z "$VAULT_INPUT" ]; then
+        VAULT_PATH="$HOME/Vaults/Main"
+    else
+        # Expand tilde if present
+        VAULT_PATH="${VAULT_INPUT/#\~/$HOME}"
+    fi
+else
+    # Use provided argument
+    VAULT_PATH="${1/#\~/$HOME}"
+fi
+
 # Define paths
-VAULT_PATH="$HOME/Vaults/Main"
 PLUGIN_DIR="$VAULT_PATH/.obsidian/plugins/page-script"
 EXAMPLES_DIR="$VAULT_PATH/90 Sys/PageScripts"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "🚀 Installing PageScript Plugin..."
+echo "🚀 Installing PageScript Plugin to: $VAULT_PATH"
 
 # Check if vault exists
 if [ ! -d "$VAULT_PATH" ]; then

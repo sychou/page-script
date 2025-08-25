@@ -26,7 +26,8 @@ An Obsidian plugin that executes JavaScript code blocks from markdown files with
    git clone <repository-url>
    cd page-script
    npm install
-   ./install.sh  # Installs to ~/Vaults/Main by default
+   ./install.sh  # Will prompt for vault path (default: ~/Vaults/Main)
+   # Or specify path directly: ./install.sh /path/to/your/vault
    ```
 
 2. **Manual installation**:
@@ -41,6 +42,8 @@ An Obsidian plugin that executes JavaScript code blocks from markdown files with
 3. **Try an example**: Ctrl/Cmd + P → "Execute PageScript" → Select "Insert text at cursor"
 
 ## 📖 Learning PageScripts
+
+The following examples are included in the `PageScripts/` folder and demonstrate various concepts and techniques.
 
 ### Basic Concepts
 

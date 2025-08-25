@@ -1,15 +1,27 @@
 @echo off
 REM PageScript Plugin Installer for Windows
-REM Installs the plugin to ~/Vaults/Main/.obsidian/plugins/page-script
-REM and copies examples to ~/Vaults/Main/90 Sys/PageScripts
+REM Installs the plugin to specified vault and copies examples
 
 setlocal enabledelayedexpansion
 
-set "VAULT_PATH=%USERPROFILE%\Vaults\Main"
+REM Get vault path from user
+if "%~1"=="" (
+    echo 🚀 PageScript Plugin Installer
+    echo.
+    set /p "VAULT_INPUT=Enter the path to your Obsidian vault (default: %USERPROFILE%\Vaults\Main): "
+    if "!VAULT_INPUT!"=="" (
+        set "VAULT_PATH=%USERPROFILE%\Vaults\Main"
+    ) else (
+        set "VAULT_PATH=!VAULT_INPUT!"
+    )
+) else (
+    set "VAULT_PATH=%~1"
+)
+
 set "PLUGIN_DIR=%VAULT_PATH%\.obsidian\plugins\page-script"
 set "EXAMPLES_DIR=%VAULT_PATH%\90 Sys\PageScripts"
 
-echo 🚀 Installing PageScript Plugin...
+echo 🚀 Installing PageScript Plugin to: %VAULT_PATH%
 
 REM Check if vault exists
 if not exist "%VAULT_PATH%" (
