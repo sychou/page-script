@@ -1,4 +1,5 @@
 import { App, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, SuggestModal, TFile, TFolder } from 'obsidian';
+import { FolderSuggest } from './folder-suggest';
 
 interface PageScriptSettings {
 	scriptsFolder: string;
@@ -282,6 +283,7 @@ class PageScriptSuggestModal extends SuggestModal<TFile> {
 }
 
 
+
 class PageScriptSettingTab extends PluginSettingTab {
 	plugin: PageScriptPlugin;
 
@@ -300,13 +302,19 @@ class PageScriptSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Scripts folder')
 			.setDesc('The folder containing your PageScript markdown files')
-			.addText(text => text
-				.setPlaceholder('PageScripts')
-				.setValue(this.plugin.settings.scriptsFolder)
-				.onChange(async (value) => {
-					this.plugin.settings.scriptsFolder = value || 'PageScripts';
-					await this.plugin.saveSettings();
-				}));
+			.addSearch((cb) => {
+				new FolderSuggest(this.app, cb.inputEl);
+				cb.setPlaceholder('Example: 90 Sys/PageScripts')
+					.setValue(this.plugin.settings.scriptsFolder)
+					.onChange(async (newFolder) => {
+						// Trim folder and strip ending slash if there
+						newFolder = newFolder.trim();
+						newFolder = newFolder.replace(/\/$/, "");
+						
+						this.plugin.settings.scriptsFolder = newFolder || 'PageScripts';
+						await this.plugin.saveSettings();
+					});
+			});
 	}
 
 }
